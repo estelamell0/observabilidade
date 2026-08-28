@@ -1,0 +1,52 @@
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: ci-logs
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ci-pipeline
+          __path__: /var/log/ci/*.log
+    pipeline_stages:
+      # 1) Parse do JSON estruturado
+      - json:
+          expressions:
+            level: level
+            gate: gate
+            event: event
+            trace_id: trace_id
+            service: service
+            message: message
+
+      # 2) Promover SOMENTE labels de BAIXA cardinalidade
+      #    NUNCA promova trace_id, commit_sha, pipeline_id — alta cardinalidade!
+      - labels:
+          level:
+          gate:
+          service:
+
+      # 3) MASCARAMENTO DE PII — rede de segurança na ingestão
+      #    (a primeira camada deve ser no código ou no OTel Collector)
+      - replace:
+          expression: '(\d{3})\.(\d{3})\.(\d{3})-(\d{2})'
+          replace: '[CPF_REDACTED]'
+      - replace:
+          expression: '\b(\d[ -]*?){13,16}\b'
+          replace: '[PAN_REDACTED]'
+      # Mascara e-mail mantendo domínio (útil para troubleshooting)
+      - replace:
+          expression: '([a-zA-Z0-9._%+-]{1,3})[a-zA-Z0-9._%+-]*@'
+          replace: '${1}***@'
+
+      # 4) Timestamp do evento (usa o do JSON, não o de ingestão)
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02T15:04:05.000Z'
+

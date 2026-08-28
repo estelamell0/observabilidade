@@ -1,0 +1,13 @@
+groups:
+  - name: esteira-recording
+    interval: 30s
+    rules:
+      - record: pipeline:success_rate:1h
+        expr: >
+          sum(rate(pipeline_runs_total{status="success"}[1h]))
+            / sum(rate(pipeline_runs_total[1h]))
+
+      - record: pipeline:duration_p95:1h
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(pipeline_duration_seconds_bucket[1h])) by (le))

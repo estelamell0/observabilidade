@@ -1,0 +1,101 @@
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  attributes/scrub:
+    actions:
+      - key: ci.token
+        action: delete
+      - key: user.email
+        action: hash
+      - key: authorization
+        action: delete
+      # Aula 4 — PII/LGPD:
+      - key: user.cpf
+        action: delete
+      - key: user.pan
+        action: delete
+      - key: user.cvv
+        action: delete
+      - key: user.password
+        action: delete
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: "lab"
+        action: upsert
+
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  # ─── Aula 5 — Tail Sampling orientado a auditoria ────────
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    policies:
+      - name: erros-sempre
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: lentos-sempre
+        type: latency
+        latency: { threshold_ms: 300000 }       # > 5 min
+      - name: deploy-prod-sempre
+        type: string_attribute
+        string_attribute: { key: deploy.env, values: [prod, staging] }
+      - name: amostra-o-resto
+        type: probabilistic
+        probabilistic: { sampling_percentage: 10 }
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    enable_open_metrics: true
+    send_timestamps: true
+
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # ─── Aula 5 — Jaeger como backend alternativo ────────────
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+    tls:
+      insecure: true
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/scrub, resource, tail_sampling, batch]
+      exporters: [otlp/tempo, otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/scrub, batch]
+      exporters: [otlphttp/loki]

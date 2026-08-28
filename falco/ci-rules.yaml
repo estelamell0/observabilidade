@@ -1,0 +1,23 @@
+- rule: Shell in CI Runner
+  desc: Detecta quando um shell é aberto interativamente dentro do container ci-runner
+  condition: >
+    spawned_process and container and
+    container.name = "ci-runner" and
+    (proc.name = "bash" or proc.name = "sh" or proc.name = "zsh")
+  output: >
+    Alerta de Segurança (Aula 6): Shell detectado no container CI!
+    (user=%user.name container=%container.name shell=%proc.name cmdline=%proc.cmdline)
+  priority: WARNING
+  tags: [container, ci, security_audit, mitre_execution]
+
+- rule: Read Sensitive Files in CI
+  desc: Detecta tentativa de ler credenciais/arquivos sensíveis no runner
+  condition: >
+    open_read and container and
+    container.name = "ci-runner" and
+    (fd.name startswith "/etc/shadow" or fd.name startswith "/root/.aws/")
+  output: >
+    Alerta de Segurança (Aula 6): Tentativa de acesso a arquivo sensível no CI!
+    (user=%user.name container=%container.name file=%fd.name cmdline=%proc.cmdline)
+  priority: CRITICAL
+  tags: [container, ci, security_audit, mitre_credential_access]

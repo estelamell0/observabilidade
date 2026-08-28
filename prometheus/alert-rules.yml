@@ -1,0 +1,33 @@
+groups:
+  - name: esteira
+    rules:
+      - alert: AltaTaxaDeFalhaPipeline
+        expr: >
+          sum(rate(pipeline_runs_total{status="failed"}[15m]))
+            / sum(rate(pipeline_runs_total[15m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          team: plataforma
+        annotations:
+          summary: "Taxa de falha do pipeline > 20% nos últimos 15m"
+          runbook_url: "https://wiki.corp/runbooks/pipeline-falha"
+
+      - alert: FindingCriticoEmGate
+        expr: sum(gate_findings{severity="critical"}) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Finding CRÍTICO aberto em gate de segurança"
+
+      - alert: DeploySemCoberturaDeGate
+        expr: >
+          sum(increase(deploy_total{env="prod"}[1h]))
+            - sum(increase(deploy_total{env="prod",gate_executed="true"}[1h])) > 0
+        for: 0m
+        labels:
+          severity: critical
+          compliance: "true"
+        annotations:
+          summary: "Deploy em PROD sem gate de segurança executado"

@@ -1,0 +1,9 @@
+{
+  "gate": "sast",
+  "findings": {
+    "critical": 3,
+    "high": 0,
+    "medium": 12,
+    "low": 40
+  }
+}

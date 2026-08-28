@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-invalido
+spec:
+  template:
+    spec:
+      containers:
+      - name: meu-app
+        image: nginx:latest
+        securityContext:
+          runAsNonRoot: false

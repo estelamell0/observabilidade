@@ -1,0 +1,59 @@
+# ==============================================================================
+# GOLDEN PIPELINE TEMPLATE (Referência Aula 9)
+# ==============================================================================
+# Este é um modelo corporativo (reference architecture) de esteira DevSecOps.
+# Equipes de desenvolvimento herdam este pipeline em vez de reescrever as
+# validações, garantindo que instrumentação (OTel), testes de segurança (OPA/Conftest),
+# logs e evidências de auditoria ocorram sempre por padrão.
+
+name: Golden Pipeline Corporativo
+on: [push, pull_request]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Iniciar Trace OTel (Root Span)
+        run: ./scripts/otel-cli.exe span --name "golden-pipeline" --attrs "ci.pipeline_id=${GITHUB_RUN_ID},ci.branch=${GITHUB_REF_NAME}"
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Build
+        run: make build
+      
+      - name: Testes Unitários
+        run: make test
+
+  security_gates:
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    steps:
+      - name: SAST e SCA Scans
+        run: |
+          echo "Executando análise estática e verificação de dependências..."
+          # Ferramentas como SonarQube, Trivy, etc.
+      
+      - name: Policy-as-Code (OPA/Conftest)
+        run: |
+          echo "Validando manifestos Kubernetes contra políticas de segurança..."
+          conftest test manifests/ --policy policy/ --output json > evidence/policy-result.json
+
+      - name: Coletar e Assinar Evidências (Cadeia de Custódia)
+        run: |
+          cd evidence/
+          sha256sum * > MANIFEST.sha256
+
+  deploy_prod:
+    runs-on: ubuntu-latest
+    needs: security_gates
+    environment: production # Exige aprovação de 2 pessoas (Segregação de funções)
+    steps:
+      - name: Deploy
+        run: |
+          echo "Realizando deploy em produção..."
+          # kubectl apply -f manifests/
+
+      - name: Emitir Telemetria de Sucesso
+        run: |
+          ./scripts/emitir-metrica-otlp.sh --status success --branch ${GITHUB_REF_NAME}

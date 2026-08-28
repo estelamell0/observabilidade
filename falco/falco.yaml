@@ -1,0 +1,30 @@
+json_output: true
+json_include_output_property: true
+json_include_tags_property: true
+
+# Driver de captura: usa modern_ebpf em vez de kernel module (compatível com WSL2 e Docker)
+engine:
+  kind: modern_ebpf
+
+
+# Configura o output para um webhook (Falcosidekick)
+program_output:
+  enabled: true
+  keep_alive: false
+  program: "curl -d @- -X POST --header 'Content-Type: application/json' http://falcosidekick:2801/"
+
+# Habilita o envio de output do programa (via jq/curl)
+stdout_output:
+  enabled: true
+
+# Plugins necessários nas versões recentes do Falco (>= 0.38)
+plugins:
+  - name: container
+    library_path: libcontainer.so
+
+load_plugins: [container]
+
+# Regras habilitadas
+rules_file:
+  - /etc/falco/falco_rules.yaml
+  - /etc/falco/falco_rules.local.yaml
