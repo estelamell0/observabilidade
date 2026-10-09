@@ -1,4 +1,4 @@
-# Lab Observabilidade — CY-SE-014
+# Lab Observabilidade
 
 Stack open-source para os laboratórios das Aulas 1, 2 e 3 da disciplina
 **Observabilidade, Auditoria e Compliance de Pipelines DevSecOps**.
